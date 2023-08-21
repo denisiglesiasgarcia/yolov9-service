@@ -23,7 +23,6 @@ from common_code.common.enums import (
 from common_code.common.models import FieldDescription, ExecutionUnitTag
 
 # Imports required by the service's model
-# TODO: 1. ADD REQUIRED IMPORTS (ALSO IN THE REQUIREMENTS.TXT)
 import io
 import numpy as np
 import json
@@ -49,7 +48,6 @@ class Results:
 
 
 class MyService(Service):
-    # TODO: 2. CHANGE THIS DESCRIPTION
     """
     Yolov8 service model
     """
@@ -62,14 +60,12 @@ class MyService(Service):
 
     def __init__(self):
         super().__init__(
-            # TODO: 3. CHANGE THE SERVICE NAME AND SLUG
             name="Yolov8 Service",
             slug="yolov8-service",
             url=settings.service_url,
             summary=api_summary,
             description=api_description,
             status=ServiceStatus.AVAILABLE,
-            # TODO: 4. CHANGE THE INPUT AND OUTPUT FIELDS
             data_in_fields=[
                 FieldDescription(
                     name="image",
@@ -93,13 +89,11 @@ class MyService(Service):
             ],
         )
 
-        # TODO: 5. INITIALIZE THE MODEL (BY IMPORTING IT FROM A FILE)
         self.model_detect = YOLO("model/yolov8x.pt")
         self.model_seg = YOLO("model/yolov8x-seg.pt")
         self.model_pose = YOLO("model/yolov8x-pose.pt")
         self.model_class = YOLO("model/yolov8x-cls.pt")
 
-    # TODO: 6. CHANGE THE PROCESS METHOD (CORE OF THE SERVICE)
     def process(self, data):
         # NOTE that the data is a dictionary with the keys being the field names set in the data_in_fields
         raw = data["image"].data
@@ -129,7 +123,6 @@ class MyService(Service):
         return {"result": task_data}
 
 
-# TODO: 7. CHANGE THE API DESCRIPTION
 api_description = """
 This service will use Yolov8 to analyse the image content according to the selected model type :
 - detect: object detection
@@ -142,7 +135,6 @@ Yolov8 service
 """
 
 # Define the FastAPI application with information
-# TODO: 8. CHANGE THE API TITLE, VERSION, CONTACT AND LICENSE
 app = FastAPI(
     title="Yolov8 API.",
     description=api_description,
