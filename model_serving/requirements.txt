@@ -1,0 +1,5 @@
+common-code[test] @ git+https://github.com/csia-pme/csia-pme.git@main#subdirectory=common-code
+ultralytics==8.0.137
+Pillow==9.2.0
+numpy==1.23.4
+py-cpuinfo-9.0.0
