@@ -2,4 +2,4 @@ common-code[test] @ git+https://github.com/csia-pme/csia-pme.git@main#subdirecto
 ultralytics==8.0.137
 Pillow==9.2.0
 numpy==1.24.1
-py-cpuinfo-9.0.0
+py-cpuinfo==9.0.0
