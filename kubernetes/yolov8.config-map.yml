@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: yolov8-service-config
+  name: yolov8-config
   labels:
-    app: yolov8-service
+    app: yolov8
 data:
   ENVIRONMENT: development
   LOG_LEVEL: debug
-  ENGINE_URL: http://engine-service:8080
+  ENGINE_URLS: '["http://engine-service:8080"]'
   # (the port must be the same as in the sample-service.service.yml and unused by other services)
-  SERVICE_URL: http://yolov8-service-service:9696
+  SERVICE_URL: http://yolov8-service:9696

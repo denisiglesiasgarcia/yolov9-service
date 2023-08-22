@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: yolov8-service
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 9696
+      targetPort: 80
+      protocol: TCP
+  selector:
+    app: yolov8

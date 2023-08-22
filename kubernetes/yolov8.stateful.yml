@@ -2,23 +2,23 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   # This name uniquely identifies the stateful set
-  name: yolov8-service-stateful
+  name: yolov8-stateful
   labels:
-    app: yolov8-service
+    app: yolov8
 spec:
-  serviceName: yolov8-service
+  serviceName: yolov8
   replicas: 1
   selector:
     matchLabels:
-      app: yolov8-service
+      app: yolov8
   template:
     metadata:
       labels:
-        app: yolov8-service
+        app: yolov8
     spec:
       containers:
-        - name: yolov8-service
-          image: ghcr.io/csia-pme/csia-pme-yolov8-service:latest
+        - name: yolov8
+          image: ghcr.io/csia-pme/csia-pme-yolov8:latest
           # If you build the image locally, change the next line to `imagePullPolicy: Never` - there is no need to pull the image
           imagePullPolicy: Always
           ports:
@@ -33,4 +33,4 @@ spec:
               value: "3"
           envFrom:
             - configMapRef:
-                name: yolov8-service-config
+                name: yolov8-config
