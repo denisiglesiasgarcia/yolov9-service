@@ -24,6 +24,7 @@ from common_code.common.models import FieldDescription, ExecutionUnitTag
 
 # Imports required by the service's model
 import io
+import os
 import numpy as np
 import json
 from PIL import Image
@@ -89,15 +90,30 @@ class MyService(Service):
             ],
         )
 
-        self.model_detect = YOLO("model/yolov8x.pt")
-        self.model_seg = YOLO("model/yolov8x-seg.pt")
-        self.model_pose = YOLO("model/yolov8x-pose.pt")
-        self.model_class = YOLO("model/yolov8x-cls.pt")
+        self.model_detect = YOLO(
+            os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), "model/yolov8x.pt"
+            )
+        )
+        self.model_seg = YOLO(
+            os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), "model/yolov8x-seg.pt"
+            )
+        )
+        self.model_pose = YOLO(
+            os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), "model/yolov8x-pose.pt"
+            )
+        )
+        self.model_class = YOLO(
+            os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), "model/yolov8x-cls.pt"
+            )
+        )
 
     def process(self, data):
         # NOTE that the data is a dictionary with the keys being the field names set in the data_in_fields
         raw = data["image"].data
-        input_type = data["image"].type
         process_type = data["type"].data.decode("utf-8")
         if process_type not in ["detect", "segment", "pose", "classify"]:
             raise Exception("Model type not supported.")
