@@ -147,7 +147,7 @@ This service will use Yolov8 to analyse the image content according to the selec
 - classify: image classification
 """
 api_summary = """
-Yolov8 service
+Yolov8
 """
 
 # Define the FastAPI application with information
