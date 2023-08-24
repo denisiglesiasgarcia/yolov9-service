@@ -50,7 +50,7 @@ class Results:
 
 class MyService(Service):
     """
-    Yolov8 service model
+    Yolov8 model
     """
 
     # Any additional fields must be excluded for Pydantic to work
@@ -61,8 +61,8 @@ class MyService(Service):
 
     def __init__(self):
         super().__init__(
-            name="Yolov8 Service",
-            slug="yolov8-service",
+            name="Yolov8",
+            slug="yolov8",
             url=settings.service_url,
             summary=api_summary,
             description=api_description,
