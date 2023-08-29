@@ -140,7 +140,7 @@ class MyService(Service):
 
 
 api_description = """
-This service will use Yolov8 to analyse the image content according to the selected model type :
+This service will use Yolov8 to analyse the image content according to the selected model type:
 - detect: object detection
 - segment: object segmentation
 - pose: human pose estimation
