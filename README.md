@@ -6,4 +6,4 @@ This service will use Yolov8 to analyse the image content according to the selec
 - pose: human pose estimation
 - classify: image classification
 
-_Check the [related documentation](https://csia-pme.github.io/csia-pme/reference/yolov8) for more information._
+_Check the [related documentation](https://swiss-ai-center.github.io/core-engine/reference/yolov8) for more information._

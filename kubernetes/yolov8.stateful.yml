@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: yolov8
-          image: ghcr.io/csia-pme/csia-pme-yolov8:latest
+          image: ghcr.io/swiss-ai-center/yolov8:latest
           # If you build the image locally, change the next line to `imagePullPolicy: Never` - there is no need to pull the image
           imagePullPolicy: Always
           ports:
