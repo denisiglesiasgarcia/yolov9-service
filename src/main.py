@@ -84,10 +84,11 @@ class MyService(Service):
             ],
             tags=[
                 ExecutionUnitTag(
-                    name=ExecutionUnitTagName.IMAGE_PROCESSING,
-                    acronym=ExecutionUnitTagAcronym.IMAGE_PROCESSING,
+                    name=ExecutionUnitTagName.IMAGE_RECOGNITION,
+                    acronym=ExecutionUnitTagAcronym.IMAGE_RECOGNITION,
                 ),
             ],
+            has_ai=True
         )
 
         self.model_detect = YOLO(
@@ -147,7 +148,7 @@ This service will use Yolov8 to analyse the image content according to the selec
 - classify: image classification
 """
 api_summary = """
-Yolov8
+Yolov8 trained model to detect entities.
 """
 
 # Define the FastAPI application with information
@@ -158,7 +159,7 @@ app = FastAPI(
     contact={
         "name": "Swiss AI Center",
         "url": "https://swiss-ai-center.ch/",
-        "email": "info@swiss-ai-center.ch",
+        "email": "ia.recherche@hes-so.ch",
     },
     swagger_ui_parameters={
         "tagsSorter": "alpha",
