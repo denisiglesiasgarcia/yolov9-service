@@ -54,6 +54,7 @@ class MyService(Service):
     """
 
     # Any additional fields must be excluded for Pydantic to work
+    logger: object = Field(exclude=True)
     model_detect: object = Field(exclude=True)
     model_seg: object = Field(exclude=True)
     model_pose: object = Field(exclude=True)
@@ -90,6 +91,7 @@ class MyService(Service):
             ],
             has_ai=True
         )
+        self.logger = get_logger(settings)
 
         self.model_detect = YOLO(
             os.path.join(
@@ -159,7 +161,7 @@ app = FastAPI(
     contact={
         "name": "Swiss AI Center",
         "url": "https://swiss-ai-center.ch/",
-        "email": "ia.recherche@hes-so.ch",
+        "email": "info@swiss-ai-center.ch",
     },
     swagger_ui_parameters={
         "tagsSorter": "alpha",

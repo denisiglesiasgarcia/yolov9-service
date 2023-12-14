@@ -13,8 +13,6 @@ on:
       - main
       - prod
 
-  pull_request:
-
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
@@ -74,11 +72,11 @@ jobs:
 
       - name: Prepare configuration files
         shell: bash
-        working-directory: kubernetes
+        working-directory: ./kubernetes
         env:
           ENVIRONMENT: production
           LOG_LEVEL: info
-          ENGINE_URLS: "'[\"https://core-engine-swiss-ai-center.kube.isc.heia-fr.ch\"]'"
+          ENGINE_URLS: "'[\"https://backend-core-engine-swiss-ai-center.kube.isc.heia-fr.ch\"]'"
           SERVICE_URL: https://yolov8-swiss-ai-center.kube.isc.heia-fr.ch
         run: |
           # Set yolov8 version
@@ -117,11 +115,11 @@ jobs:
 
       - name: Prepare configuration files
         shell: bash
-        working-directory: kubernetes
+        working-directory: ./kubernetes
         env:
           ENVIRONMENT: production
           LOG_LEVEL: info
-          ENGINE_URLS: "'[\"https://core-engine-swiss-ai-center.kube.isc.heia-fr.ch\"]'"
+          ENGINE_URLS: "'[\"https://backend-core-engine-swiss-ai-center.kube.isc.heia-fr.ch\"]'"
           SERVICE_URL: https://yolov8-swiss-ai-center.kube.isc.heia-fr.ch
         run: |
           # Set yolov8 version
