@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: yolov8-service
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   ports:
     - name: http
       port: 9696
