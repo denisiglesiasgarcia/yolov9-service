@@ -4,9 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from common_code.config import get_settings
-from pydantic import Field
 from common_code.http_client import HttpClient
-from common_code.logger.logger import get_logger
+from common_code.logger.logger import get_logger, Logger
 from common_code.service.controller import router as service_router
 from common_code.service.service import ServiceService
 from common_code.storage.service import StorageService
@@ -21,6 +20,7 @@ from common_code.common.enums import (
     ExecutionUnitTagAcronym,
 )
 from common_code.common.models import FieldDescription, ExecutionUnitTag
+from contextlib import asynccontextmanager
 
 # Imports required by the service's model
 import io
@@ -54,11 +54,11 @@ class MyService(Service):
     """
 
     # Any additional fields must be excluded for Pydantic to work
-    logger: object = Field(exclude=True)
-    model_detect: object = Field(exclude=True)
-    model_seg: object = Field(exclude=True)
-    model_pose: object = Field(exclude=True)
-    model_class: object = Field(exclude=True)
+    _logger: Logger
+    _model_detect: object
+    _model_seg: object
+    _model_pose: object
+    _model_class: object
 
     def __init__(self):
         super().__init__(
@@ -91,55 +91,107 @@ class MyService(Service):
             ],
             has_ai=True
         )
-        self.logger = get_logger(settings)
+        self._logger = get_logger(settings)
 
-        self.model_detect = YOLO(
+        self._model_detect = YOLO(
             os.path.join(
                 os.path.dirname(os.path.realpath(__file__)), "model/yolov8x.pt"
             )
         )
-        self.model_seg = YOLO(
+        self._model_seg = YOLO(
             os.path.join(
                 os.path.dirname(os.path.realpath(__file__)), "model/yolov8x-seg.pt"
             )
         )
-        self.model_pose = YOLO(
+        self._model_pose = YOLO(
             os.path.join(
                 os.path.dirname(os.path.realpath(__file__)), "model/yolov8x-pose.pt"
             )
         )
-        self.model_class = YOLO(
+        self._model_class = YOLO(
             os.path.join(
                 os.path.dirname(os.path.realpath(__file__)), "model/yolov8x-cls.pt"
             )
         )
 
     def process(self, data):
-        # NOTE that the data is a dictionary with the keys being the field names set in the data_in_fields
         raw = data["image"].data
         process_type = data["type"].data.decode("utf-8")
         if process_type not in ["detect", "segment", "pose", "classify"]:
             raise Exception("Model type not supported.")
-        # ... do something with the raw data
+
         buff = io.BytesIO(raw)
         img_pil = Image.open(buff)
         img = np.array(img_pil)
 
         if process_type == "detect":
-            results = self.model_detect(img)[0]
+            results = self._model_detect(img)[0]
         elif process_type == "segment":
-            results = self.model_seg(img)[0]
+            results = self._model_seg(img)[0]
         elif process_type == "pose":
-            results = self.model_pose(img)[0]
+            results = self._model_pose(img)[0]
         elif process_type == "classify":
-            results = Results(self.model_class(img))
+            results = Results(self._model_class(img))
+        else:
+            raise Exception("Model type not supported.")
 
         task_data = TaskData(
             data=results.tojson(), type=FieldDescriptionType.APPLICATION_JSON
         )
 
-        # NOTE that the result must be a dictionary with the keys being the field names set in the data_out_fields
         return {"result": task_data}
+
+
+service_service: ServiceService | None = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Manual instances because startup events doesn't support Dependency Injection
+    # https://github.com/tiangolo/fastapi/issues/2057
+    # https://github.com/tiangolo/fastapi/issues/425
+
+    # Global variable
+    global service_service
+
+    # Startup
+    logger = get_logger(settings)
+    http_client = HttpClient()
+    storage_service = StorageService(logger)
+    my_service = MyService()
+    tasks_service = TasksService(logger, settings, http_client, storage_service)
+    service_service = ServiceService(logger, settings, http_client, tasks_service)
+
+    tasks_service.set_service(my_service)
+
+    # Start the tasks service
+    tasks_service.start()
+
+    async def announce():
+        retries = settings.engine_announce_retries
+        for engine_url in settings.engine_urls:
+            announced = False
+            while not announced and retries > 0:
+                announced = await service_service.announce_service(
+                    my_service, engine_url
+                )
+                retries -= 1
+                if not announced:
+                    time.sleep(settings.engine_announce_retry_delay)
+                    if retries == 0:
+                        logger.warning(
+                            f"Aborting service announcement after "
+                            f"{settings.engine_announce_retries} retries"
+                        )
+
+    # Announce the service to its engine
+    asyncio.ensure_future(announce())
+
+    yield
+
+    # Shutdown
+    for engine_url in settings.engine_urls:
+        await service_service.graceful_shutdown(my_service, engine_url)
 
 
 api_description = """
@@ -149,12 +201,14 @@ This service will use Yolov8 to analyse the image content according to the selec
 - pose: human pose estimation
 - classify: image classification
 """
+
 api_summary = """
 Yolov8 trained model to detect entities.
 """
 
 # Define the FastAPI application with information
 app = FastAPI(
+    lifespan=lifespan,
     title="Yolov8 API.",
     description=api_description,
     version="1.0.0",
@@ -190,57 +244,3 @@ app.add_middleware(
 @app.get("/", include_in_schema=False)
 async def root():
     return RedirectResponse("/docs", status_code=301)
-
-
-service_service: ServiceService | None = None
-
-
-@app.on_event("startup")
-async def startup_event():
-    # Manual instances because startup events doesn't support Dependency Injection
-    # https://github.com/tiangolo/fastapi/issues/2057
-    # https://github.com/tiangolo/fastapi/issues/425
-
-    # Global variable
-    global service_service
-
-    logger = get_logger(settings)
-    http_client = HttpClient()
-    storage_service = StorageService(logger)
-    my_service = MyService()
-    tasks_service = TasksService(logger, settings, http_client, storage_service)
-    service_service = ServiceService(logger, settings, http_client, tasks_service)
-
-    tasks_service.set_service(my_service)
-
-    # Start the tasks service
-    tasks_service.start()
-
-    async def announce():
-        retries = settings.engine_announce_retries
-        for engine_url in settings.engine_urls:
-            announced = False
-            while not announced and retries > 0:
-                announced = await service_service.announce_service(
-                    my_service, engine_url
-                )
-                retries -= 1
-                if not announced:
-                    time.sleep(settings.engine_announce_retry_delay)
-                    if retries == 0:
-                        logger.warning(
-                            f"Aborting service announcement after "
-                            f"{settings.engine_announce_retries} retries"
-                        )
-
-    # Announce the service to its engine
-    asyncio.ensure_future(announce())
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    # Global variable
-    global service_service
-    my_service = MyService()
-    for engine_url in settings.engine_urls:
-        await service_service.graceful_shutdown(my_service, engine_url)
