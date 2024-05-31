@@ -1,9 +1,5 @@
-# yolov8
+# yolov9-segment
 
-This service will use Yolov8 to analyse the image content according to the selected model type:
-- detect: object detection
-- segment: object segmentation
-- pose: human pose estimation
-- classify: image classification
+This service will use a YOLOv9 model to apply semantic segmentation to an orthophoto image.
 
-_Check the [related documentation](https://docs.swiss-ai-center.ch/reference/services/yolov8) for more information._
+Model is not included in this repository. Create the folder `src/model` and put the model there.
