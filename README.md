@@ -40,7 +40,7 @@ This service will use a YOLOv9 model to apply semantic segmentation to an orthop
     docker compose up
     ```
 
-    Access the Core engine Frontend on <http://localhost:3000>
+
 
 2) Install this service
 
@@ -56,6 +56,7 @@ This service will use a YOLOv9 model to apply semantic segmentation to an orthop
     # Start the service
     docker compose up
     ```
+
     b) add the [model](https://hessoit-my.sharepoint.com/:u:/g/personal/denis_iglesias_hes-so_ch/ESf0u57JrkREq10xx3Cn1mEBOPOnuOmKtKgb3J0dym5vkA?e=TZmxZB) to the service
 
     ```bash
@@ -69,8 +70,6 @@ This service will use a YOLOv9 model to apply semantic segmentation to an orthop
     mv best.pt src/model
     ```
 
+3) Download the [dataset](https://hessoit-my.sharepoint.com/:f:/g/personal/denis_iglesias_hes-so_ch/Ev3KpsdP38dPicLqPfpU4NsB-6_eaG-yV_SLDaP-6JnPtQ?e=cBAFLA)
 
-
-
-
-
+4) Access the Core engine Frontend on <http://localhost:3000>
