@@ -8,7 +8,7 @@ This service will use a YOLOv9 model to apply semantic segmentation to an orthop
 
     ```bash
     # Clone the Core engine repository
-    git clone git@github.com:swiss-ai-center/core-engine
+    git clone https://github.com/swiss-ai-center/core-engine.git
     ```
 
     Documentation for the installation of the Core engine can be found [here](https://docs.swiss-ai-center.ch/tutorials/start-the-core-engine/)
