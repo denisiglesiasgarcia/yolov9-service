@@ -2,7 +2,11 @@
 
 This service will use a YOLOv9 model to apply semantic segmentation to an orthophoto image.
 
-## Install
+## Thanks
+
+This service is based on <https://github.com/swiss-ai-center/yolov8-service>. Many thanks to the Swiss AI Center for providing the code.
+
+## Howto use the service to segment images from the test dataset
 
 1) You need to have the Core engine installed before using this service.
 
