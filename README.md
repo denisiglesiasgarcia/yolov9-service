@@ -44,6 +44,8 @@ This service will use a YOLOv9 model to apply semantic segmentation to an orthop
 
 2) Install this service
 
+    a) clone and install the yolov9-segment service
+
     ```bash
     # Clone this service repository
     git clone https://github.com/denisiglesiasgarcia/yolov8-service
@@ -54,7 +56,19 @@ This service will use a YOLOv9 model to apply semantic segmentation to an orthop
     # Start the service
     docker compose up
     ```
-    
+    b) add the [model](https://hessoit-my.sharepoint.com/:u:/g/personal/denis_iglesias_hes-so_ch/ESf0u57JrkREq10xx3Cn1mEBOPOnuOmKtKgb3J0dym5vkA?e=TZmxZB) to the service
+
+    ```bash
+    # Download the model
+    https://hessoit-my.sharepoint.com/:u:/g/personal/denis_iglesias_hes-so_ch/ESf0u57JrkREq10xx3Cn1mEBOPOnuOmKtKgb3J0dym5vkA?e=TZmxZB
+
+    # make the model directory
+    mkdir src/model
+
+    # move the model to the model directory
+    mv best.pt src/model
+    ```
+
 
 
 
