@@ -29,8 +29,6 @@ import numpy as np
 import json
 from PIL import Image
 from ultralytics import YOLO
-import cv2 as cv
-from common_code.tasks.service import get_extension
 
 settings = get_settings()
 
@@ -52,7 +50,7 @@ class Results:
 
 class MyService(Service):
     """
-    Yolov9 model
+    Yolov8 model
     """
 
     # Any additional fields must be excluded for Pydantic to work
@@ -64,8 +62,8 @@ class MyService(Service):
 
     def __init__(self):
         super().__init__(
-            name="Yolov9-segment",
-            slug="yolov9-segment",
+            name="Yolov8",
+            slug="yolov8",
             url=settings.service_url,
             summary=api_summary,
             description=api_description,
@@ -74,13 +72,15 @@ class MyService(Service):
                 FieldDescription(
                     name="image",
                     type=[
+                        FieldDescriptionType.IMAGE_PNG,
                         FieldDescriptionType.IMAGE_JPEG,
                     ],
                 ),
+                FieldDescription(name="type", type=[FieldDescriptionType.TEXT_PLAIN]),
             ],
             data_out_fields=[
                 FieldDescription(
-                    name="result", type=[FieldDescriptionType.IMAGE_JPEG]
+                    name="result", type=[FieldDescriptionType.APPLICATION_JSON]
                 ),
             ],
             tags=[
@@ -94,110 +94,53 @@ class MyService(Service):
         )
         self._logger = get_logger(settings)
 
+        self._model_detect = YOLO(
+            os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), "model/yolov8x.pt"
+            )
+        )
         self._model_seg = YOLO(
             os.path.join(
-                os.path.dirname(os.path.realpath(__file__)), "model/best.pt"
+                os.path.dirname(os.path.realpath(__file__)), "model/yolov8x-seg.pt"
+            )
+        )
+        self._model_pose = YOLO(
+            os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), "model/yolov8x-pose.pt"
+            )
+        )
+        self._model_class = YOLO(
+            os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), "model/yolov8x-cls.pt"
             )
         )
 
     def process(self, data):
         raw = data["image"].data
-        input_type = data["image"].type
+        process_type = data["type"].data.decode("utf-8")
+        if process_type not in ["detect", "segment", "pose", "classify"]:
+            raise Exception("Model type not supported.")
+
         buff = io.BytesIO(raw)
-        # open buff with cv 
-        img_pred = cv.imdecode(np.frombuffer(buff.read(), np.uint8), cv.IMREAD_COLOR)
-        # img = np.array(img_pil)
+        img_pil = Image.open(buff)
+        img = np.array(img_pil)
 
-        # results = self._model_seg(img)[0]
+        if process_type == "detect":
+            results = self._model_detect(img)[0]
+        elif process_type == "segment":
+            results = self._model_seg(img)[0]
+        elif process_type == "pose":
+            results = self._model_pose(img)[0]
+        elif process_type == "classify":
+            results = Results(self._model_class(img))
+        else:
+            raise Exception("Model type not supported.")
 
-        colors_pred = [
-            (255, 255, 0),  # Pred Rooftop
-            (0.0, 165, 255),  # Pred Solar panel
-            ]
+        task_data = TaskData(
+            data=results.tojson(), type=FieldDescriptionType.APPLICATION_JSON
+        )
 
-        # Run inference on the source
-        results = self._model_seg(img_pred)
- 
-        for r in results:
-            masks = r.masks.xy  # list of masks
-            mask_class = r.boxes.cls.cpu().numpy()  # class of the mask
-            confidence_score = r.boxes.conf.cpu().numpy()  # confidence of the mask
-
-            for mask, c, conf_score in zip(masks, mask_class, confidence_score):
-                mask = np.array(mask, np.int32)
-                c = int(c)  # Convert c to an integer
-                overlay = img_pred.copy()
-                cv.fillPoly(overlay, [mask], color=colors_pred[c] + (128,))
-                img_pred = cv.addWeighted(overlay, 0.5, img_pred, 0.5, 0)
-
-                # Calculate the centroid of the mask
-                moments = cv.moments(mask)
-                if moments["m00"] != 0:
-                    cx = int(moments["m10"] / moments["m00"])
-                    cy = int(moments["m01"] / moments["m00"])
-
-                    # Add label text at the centroid
-                    conf_score = round(conf_score, 2)
-                    if c==0:
-                        label_text = "rooftop (" + str(conf_score) + ")"
-                        label_color = colors_pred[0]
-                    elif c==1:
-                        label_text = "solar-panel (" + str(conf_score) + ")"
-                        label_color = colors_pred[1]
-                    label_font_scale = 1.0  # Increase font scale for better visibility
-                    label_thickness = 2  # Increase thickness for better visibility
-                    label_bg_color = (0, 0, 0)  # Black color for label background
-                    label_text_size, _ = cv.getTextSize(label_text, cv.FONT_HERSHEY_SIMPLEX, label_font_scale, label_thickness)
-                    label_x = cx - label_text_size[0] // 2
-                    label_y = cy + label_text_size[1] // 2
-
-                    # Add a background rectangle for the label text
-                    cv.rectangle(img_pred, (label_x - 5, label_y - label_text_size[1] - 5),
-                                (label_x + label_text_size[0] + 5, label_y + 5), label_bg_color, cv.FILLED)
-
-                    cv.putText(img_pred, label_text, (label_x, label_y), cv.FONT_HERSHEY_SIMPLEX,
-                            label_font_scale, label_color, label_thickness)
-
-        # Add legend for predicted image
-        pred_legend_font_scale = 1.0
-        pred_legend_thickness = 2
-        pred_legend_color = (255, 255, 255)
-        pred_legend_bg_color = (50, 50, 5)
-        pred_legend_text = "Predicted"
-        pred_legend_text_size, _ = cv.getTextSize(pred_legend_text, cv.FONT_HERSHEY_SIMPLEX, pred_legend_font_scale, pred_legend_thickness)
-        pred_legend_x = img_pred.shape[1] - pred_legend_text_size[0] - 20
-        pred_legend_y = 30
-        cv.rectangle(img_pred, (pred_legend_x - 10, pred_legend_y - pred_legend_text_size[1] - 10),
-                    (pred_legend_x + pred_legend_text_size[0] + 10, pred_legend_y + 10), pred_legend_bg_color, -1)
-        cv.putText(img_pred, pred_legend_text, (pred_legend_x, pred_legend_y), cv.FONT_HERSHEY_SIMPLEX,
-                    pred_legend_font_scale, pred_legend_color, pred_legend_thickness)
-
-        color_rooftop_pred = (255, 255, 0)  # Blue (BGR format)
-        color_solar_panel_pred = (0, 165, 255)  # Orange (BGR format)
-        pred_legend_items = [
-            ("Rooftop", color_rooftop_pred),
-            ("Solar-panel", color_solar_panel_pred)
-        ]
-
-        for i, (text, color) in enumerate(pred_legend_items):
-            text_size, _ = cv.getTextSize(text, cv.FONT_HERSHEY_SIMPLEX, pred_legend_font_scale, pred_legend_thickness)
-            text_x = img_pred.shape[1] - text_size[0] - 20
-            text_y = pred_legend_y + (i + 1) * (text_size[1] + 20)
-            cv.rectangle(img_pred, (text_x - 10, text_y - text_size[1] - 10),
-                        (text_x + text_size[0] + 10, text_y + 10), pred_legend_bg_color, -1)
-            cv.putText(img_pred, text, (text_x, text_y), cv.FONT_HERSHEY_SIMPLEX, pred_legend_font_scale, color, pred_legend_thickness)
-
-        # Encode the image with the same format as the input
-        guessed_extension = get_extension(input_type)
-        is_success, out_buff = cv.imencode(guessed_extension, img_pred)
-
-        # NOTE that the result must be a dictionary with the keys being the field names set in the data_out_fields
-        return {
-            "result": TaskData(
-                data=out_buff.tobytes(),
-                type=input_type,
-            )
-        }
+        return {"result": task_data}
 
 
 service_service: ServiceService | None = None
@@ -253,17 +196,21 @@ async def lifespan(app: FastAPI):
 
 
 api_description = """
-This service will use Yolov9 to analyse orthophotos and apply semantic segmentation on rooftops and solar panels.
+This service will use Yolov8 to analyse the image content according to the selected model type:
+- detect: object detection
+- segment: object segmentation
+- pose: human pose estimation
+- classify: image classification
 """
 
 api_summary = """
-Yolov9 trained model to segment .
+Yolov8 trained model to detect entities.
 """
 
 # Define the FastAPI application with information
 app = FastAPI(
     lifespan=lifespan,
-    title="Yolov9 API.",
+    title="Yolov8 API.",
     description=api_description,
     version="1.0.0",
     contact={
