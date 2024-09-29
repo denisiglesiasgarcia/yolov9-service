@@ -21,13 +21,6 @@ services:
         cd src &&
         uvicorn --reload --host 0.0.0.0 --port 9090 main:app
       "
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     environment:
       - ENGINE_URLS=["http://host.docker.internal:8080"]
       - SERVICE_URL=http://host.docker.internal:${SERVICE_PORT}
