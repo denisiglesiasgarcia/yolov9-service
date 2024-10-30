@@ -5,12 +5,12 @@ services:
       dockerfile: development.Dockerfile
     command: |
       bash -c "
-        if [ -d .venv ]; 
-        then 
-          echo '.venv exists and is not empty'; 
-        else 
-          echo '.venv does not exist or is empty'; 
-          python3.11 -m venv .venv; 
+        if [ -d .venv ];
+        then
+          echo '.venv exists and is not empty';
+        else
+          echo '.venv does not exist or is empty';
+          python3.11 -m venv .venv;
         fi &&
         # Activate the virtual environment
         source .venv/bin/activate &&
@@ -24,6 +24,8 @@ services:
     environment:
       - ENGINE_URLS=["http://host.docker.internal:8080"]
       - SERVICE_URL=http://host.docker.internal:${SERVICE_PORT}
+      - PYTORCH_ENABLE_MPS_FALLBACK=1  # Enable Metal support for Mac
+      - TORCH_DEVICE=auto              # Automatic device selection
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -31,3 +33,17 @@ services:
     working_dir: /workspaces/service
     volumes:
       - .:/workspaces/service
+    # GPU support configuration
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Mac Metal support
+    device_cgroup_rules:
+      - 'c 189:* rmw'
+      - 'c 195:* rmw'
+    devices:
+      - '/dev/dri:/dev/dri'
