@@ -24,8 +24,8 @@ services:
     environment:
       - ENGINE_URLS=["http://host.docker.internal:8080"]
       - SERVICE_URL=http://host.docker.internal:${SERVICE_PORT}
-      - PYTORCH_ENABLE_MPS_FALLBACK=1  # Enable Metal support for Mac
-      - TORCH_DEVICE=auto              # Automatic device selection
+      - PYTORCH_ENABLE_MPS_FALLBACK=1
+      - TORCH_DEVICE=auto
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -33,7 +33,7 @@ services:
     working_dir: /workspaces/service
     volumes:
       - .:/workspaces/service
-    # GPU support configuration
+    # GPU support for NVIDIA
     deploy:
       resources:
         reservations:
@@ -41,9 +41,3 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    # Mac Metal support
-    device_cgroup_rules:
-      - 'c 189:* rmw'
-      - 'c 195:* rmw'
-    devices:
-      - '/dev/dri:/dev/dri'
