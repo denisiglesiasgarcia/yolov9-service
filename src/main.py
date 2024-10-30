@@ -3,6 +3,8 @@ import time
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+import torch
+import platform
 from common_code.config import get_settings
 from common_code.http_client import HttpClient
 from common_code.logger.logger import get_logger, Logger
@@ -34,6 +36,16 @@ from common_code.tasks.service import get_extension
 
 settings = get_settings()
 
+def setup_device():
+    """
+    Setup the computation device (GPU/CPU) based on availability
+    """
+    if platform.system() == 'Darwin':  # Check if running on macOS
+        if torch.backends.mps.is_available():
+            return 'mps'  # Metal Performance Shaders (MPS) for Mac GPU
+    elif torch.cuda.is_available():
+        return 'cuda'
+    return 'cpu'
 
 class Results:
     def __init__(self, results_temp):
@@ -49,18 +61,14 @@ class Results:
     def tojson(self):
         return json.dumps(str(self.results))
 
-
 class MyService(Service):
     """
-    Yolov9 model
+    Yolov9 model with GPU support
     """
 
-    # Any additional fields must be excluded for Pydantic to work
     _logger: Logger
-    _model_detect: object
     _model_seg: object
-    _model_pose: object
-    _model_class: object
+    _device: str
 
     def __init__(self):
         super().__init__(
@@ -93,12 +101,20 @@ class MyService(Service):
             docs_url="https://docs.swiss-ai-center.ch/reference/services/yolov8/",
         )
         self._logger = get_logger(settings)
-
-        self._model_seg = YOLO(
-            os.path.join(
-                os.path.dirname(os.path.realpath(__file__)), "model/best.pt"
-            )
+        
+        # Setup device
+        self._device = setup_device()
+        self._logger.info(f"Using device: {self._device}")
+        
+        # Load model
+        model_path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "model/best.pt"
         )
+        self._model_seg = YOLO(model_path)
+        
+        # Move model to appropriate device
+        if self._device != 'cpu':
+            self._model_seg.to(self._device)
 
     def process(self, data):
         raw = data["image"].data
@@ -106,17 +122,19 @@ class MyService(Service):
         buff = io.BytesIO(raw)
         # open buff with cv 
         img_pred = cv.imdecode(np.frombuffer(buff.read(), np.uint8), cv.IMREAD_COLOR)
-        # img = np.array(img_pil)
-
-        # results = self._model_seg(img)[0]
 
         colors_pred = [
             (255, 255, 0),  # Pred Rooftop
             (0.0, 165, 255),  # Pred Solar panel
-            ]
+        ]
 
         # Run inference on the source
-        results = self._model_seg(img_pred)
+        # Convert image to appropriate device if necessary
+        if self._device != 'cpu':
+            img_tensor = torch.from_numpy(img_pred).to(self._device)
+            results = self._model_seg(img_tensor)
+        else:
+            results = self._model_seg(img_pred)
  
         for r in results:
             masks = r.masks.xy  # list of masks
@@ -144,14 +162,13 @@ class MyService(Service):
                     elif c==1:
                         label_text = "solar-panel (" + str(conf_score) + ")"
                         label_color = colors_pred[1]
-                    label_font_scale = 1.0  # Increase font scale for better visibility
-                    label_thickness = 2  # Increase thickness for better visibility
-                    label_bg_color = (0, 0, 0)  # Black color for label background
+                    label_font_scale = 1.0
+                    label_thickness = 2
+                    label_bg_color = (0, 0, 0)
                     label_text_size, _ = cv.getTextSize(label_text, cv.FONT_HERSHEY_SIMPLEX, label_font_scale, label_thickness)
                     label_x = cx - label_text_size[0] // 2
                     label_y = cy + label_text_size[1] // 2
 
-                    # Add a background rectangle for the label text
                     cv.rectangle(img_pred, (label_x - 5, label_y - label_text_size[1] - 5),
                                 (label_x + label_text_size[0] + 5, label_y + 5), label_bg_color, cv.FILLED)
 
@@ -187,11 +204,10 @@ class MyService(Service):
                         (text_x + text_size[0] + 10, text_y + 10), pred_legend_bg_color, -1)
             cv.putText(img_pred, text, (text_x, text_y), cv.FONT_HERSHEY_SIMPLEX, pred_legend_font_scale, color, pred_legend_thickness)
 
-        # Encode the image with the same format as the input
+        # Encode the image
         guessed_extension = get_extension(input_type)
         is_success, out_buff = cv.imencode(guessed_extension, img_pred)
 
-        # NOTE that the result must be a dictionary with the keys being the field names set in the data_out_fields
         return {
             "result": TaskData(
                 data=out_buff.tobytes(),
@@ -199,17 +215,11 @@ class MyService(Service):
             )
         }
 
-
 service_service: ServiceService | None = None
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Manual instances because startup events doesn't support Dependency Injection
-    # https://github.com/tiangolo/fastapi/issues/2057
-    # https://github.com/tiangolo/fastapi/issues/425
-
-    # Global variable
     global service_service
 
     # Startup
@@ -251,13 +261,12 @@ async def lifespan(app: FastAPI):
     for engine_url in settings.engine_urls:
         await service_service.graceful_shutdown(my_service, engine_url)
 
-
 api_description = """
 This service will use Yolov9 to analyse orthophotos and apply semantic segmentation on rooftops and solar panels.
 """
 
 api_summary = """
-Yolov9 trained model to segment .
+Yolov9 trained model to segment.
 """
 
 # Define the FastAPI application with information
@@ -292,7 +301,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # Redirect to docs
 @app.get("/", include_in_schema=False)
