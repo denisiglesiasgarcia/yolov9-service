@@ -41,25 +41,27 @@ def setup_device():
     Setup the computation device (GPU/CPU) based on availability
     """
     if platform.system() == 'Darwin':  # Check if running on macOS
-        if torch.backends.mps.is_available():
-            return 'mps'  # Metal Performance Shaders (MPS) for Mac GPU
+        if torch.backends.mps.is_available() and torch.backends.mps.is_built():
+            device = 'mps'
+            print("Using MPS (Metal Performance Shaders) device")
+            return device
     elif torch.cuda.is_available():
-        return 'cuda'
+        device = 'cuda'
+        print("Using CUDA device")
+        return device
+    
+    print("Using CPU device")
     return 'cpu'
 
-class Results:
-    def __init__(self, results_temp):
-        self.top5 = results_temp[0].probs.top5
-        self.top5conf = results_temp[0].probs.top5conf.numpy()
-        self.results = {
-            "top5": {
-                results_temp[0].names[top]: conf
-                for top, conf in zip(self.top5, self.top5conf)
-            }
-        }
-
-    def tojson(self):
-        return json.dumps(str(self.results))
+def to_device(tensor, device):
+    """
+    Safely move a tensor to the specified device
+    """
+    if device == 'mps':
+        # Ensure the tensor is in the correct format for MPS
+        if tensor.dtype == torch.float64:
+            tensor = tensor.float()
+    return tensor.to(device)
 
 class MyService(Service):
     """
@@ -129,15 +131,30 @@ class MyService(Service):
         ]
 
         # Run inference on the source
-        # Convert image to appropriate device if necessary
-        if self._device != 'cpu':
-            img_tensor = torch.from_numpy(img_pred).to(self._device)
-            results = self._model_seg(img_tensor)
-        else:
+        try:
+            if self._device != 'cpu':
+                # Convert image to tensor and move to device
+                img_tensor = torch.from_numpy(img_pred.transpose(2, 0, 1)).float()
+                img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
+                img_tensor = to_device(img_tensor, self._device)
+                
+                # Run inference
+                results = self._model_seg(img_tensor)
+                
+                # Move results back to CPU for processing
+                if self._device == 'mps':
+                    results = [r.cpu() for r in results]
+            else:
+                results = self._model_seg(img_pred)
+            
+        except Exception as e:
+            self._logger.error(f"Error during inference: {str(e)}")
+            # Fallback to CPU if GPU inference fails
+            self._logger.info("Falling back to CPU inference")
             results = self._model_seg(img_pred)
  
         for r in results:
-            masks = r.masks.xy  # list of masks
+            masks = r.masks.xy if r.masks is not None else []  # list of masks
             mask_class = r.boxes.cls.cpu().numpy()  # class of the mask
             confidence_score = r.boxes.conf.cpu().numpy()  # confidence of the mask
 

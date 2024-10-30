@@ -25,7 +25,7 @@ services:
       - ENGINE_URLS=["http://host.docker.internal:8080"]
       - SERVICE_URL=http://host.docker.internal:${SERVICE_PORT}
       - PYTORCH_ENABLE_MPS_FALLBACK=1
-      - TORCH_DEVICE=auto
+      - TORCH_DEVICE=mps  # Specify MPS as the device
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -33,11 +33,3 @@ services:
     working_dir: /workspaces/service
     volumes:
       - .:/workspaces/service
-    # GPU support for NVIDIA
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
